@@ -1,25 +1,49 @@
 [
 {
   "directory": "/home/a/Documents/Projects/davecast/build",
-  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party  -o CMakeFiles/davecast.dir/src/davecast.c.o -c /home/a/Documents/Projects/davecast/src/davecast.c",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party -I/home/a/Documents/Projects/davecast/third_party/libdave/cpp/includes  -o CMakeFiles/davecast.dir/src/davecast.c.o -c /home/a/Documents/Projects/davecast/src/davecast.c",
   "file": "/home/a/Documents/Projects/davecast/src/davecast.c",
   "output": "CMakeFiles/davecast.dir/src/davecast.c.o"
 },
 {
   "directory": "/home/a/Documents/Projects/davecast/build",
-  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party  -o CMakeFiles/davecast.dir/src/ws.c.o -c /home/a/Documents/Projects/davecast/src/ws.c",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party -I/home/a/Documents/Projects/davecast/third_party/libdave/cpp/includes  -o CMakeFiles/davecast.dir/src/event.c.o -c /home/a/Documents/Projects/davecast/src/event.c",
+  "file": "/home/a/Documents/Projects/davecast/src/event.c",
+  "output": "CMakeFiles/davecast.dir/src/event.c.o"
+},
+{
+  "directory": "/home/a/Documents/Projects/davecast/build",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party -I/home/a/Documents/Projects/davecast/third_party/libdave/cpp/includes  -o CMakeFiles/davecast.dir/src/identify.c.o -c /home/a/Documents/Projects/davecast/src/identify.c",
+  "file": "/home/a/Documents/Projects/davecast/src/identify.c",
+  "output": "CMakeFiles/davecast.dir/src/identify.c.o"
+},
+{
+  "directory": "/home/a/Documents/Projects/davecast/build",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party -I/home/a/Documents/Projects/davecast/third_party/libdave/cpp/includes  -o CMakeFiles/davecast.dir/src/streamandvoice.c.o -c /home/a/Documents/Projects/davecast/src/streamandvoice.c",
+  "file": "/home/a/Documents/Projects/davecast/src/streamandvoice.c",
+  "output": "CMakeFiles/davecast.dir/src/streamandvoice.c.o"
+},
+{
+  "directory": "/home/a/Documents/Projects/davecast/build",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party -I/home/a/Documents/Projects/davecast/third_party/libdave/cpp/includes  -o CMakeFiles/davecast.dir/src/useful.c.o -c /home/a/Documents/Projects/davecast/src/useful.c",
+  "file": "/home/a/Documents/Projects/davecast/src/useful.c",
+  "output": "CMakeFiles/davecast.dir/src/useful.c.o"
+},
+{
+  "directory": "/home/a/Documents/Projects/davecast/build",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party -I/home/a/Documents/Projects/davecast/third_party/libdave/cpp/includes  -o CMakeFiles/davecast.dir/src/ws.c.o -c /home/a/Documents/Projects/davecast/src/ws.c",
   "file": "/home/a/Documents/Projects/davecast/src/ws.c",
   "output": "CMakeFiles/davecast.dir/src/ws.c.o"
 },
 {
   "directory": "/home/a/Documents/Projects/davecast/build",
-  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party  -o CMakeFiles/davecast.dir/third_party/cjson/cJSON.c.o -c /home/a/Documents/Projects/davecast/third_party/cjson/cJSON.c",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party -I/home/a/Documents/Projects/davecast/third_party/libdave/cpp/includes  -o CMakeFiles/davecast.dir/third_party/cjson/cJSON.c.o -c /home/a/Documents/Projects/davecast/third_party/cjson/cJSON.c",
   "file": "/home/a/Documents/Projects/davecast/third_party/cjson/cJSON.c",
   "output": "CMakeFiles/davecast.dir/third_party/cjson/cJSON.c.o"
 },
 {
   "directory": "/home/a/Documents/Projects/davecast/build/examples",
-  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party  -o CMakeFiles/davecast-cli.dir/cli.c.o -c /home/a/Documents/Projects/davecast/examples/cli.c",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party -I/home/a/Documents/Projects/davecast/third_party/libdave/cpp/includes  -o CMakeFiles/davecast-cli.dir/cli.c.o -c /home/a/Documents/Projects/davecast/examples/cli.c",
   "file": "/home/a/Documents/Projects/davecast/examples/cli.c",
   "output": "examples/CMakeFiles/davecast-cli.dir/cli.c.o"
 }

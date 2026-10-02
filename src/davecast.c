@@ -4,6 +4,7 @@
 #include <ws.h>
 #include <identify.h>
 #include <event.h>
+#include <dcast_dave.h>
 
 #include <cjson/cJSON.h>
 
@@ -92,7 +93,13 @@ int dcast_poll(struct dcast_session* session, int timeout) {
             printf("[POLL] op: 9, INVALID SESSION, bad token or something.\n");
             break;
         }
+    }
 
+    if (session->media_wsocket) {
+        int mw_pump_res = dcast_ws_pump(session->media_wsocket);
+        if (mw_pump_res != 1) return 0;
+
+        dcast_dave_on_binary(session, (const unsigned char *) session->media_wsocket->buf, session->media_wsocket->mlen);
     }
 
     cJSON_Delete(json); // free

@@ -26,5 +26,6 @@ struct dcast_socket* dcast_ws_connect(const char *url, const char *name);
 int dcast_ws_pump(dcast_socket* wsock);
 
 void dcast_ws_send(dcast_socket* wsock, cJSON* json_obj);
+void dcast_ws_send_binary(dcast_socket* wsock, unsigned char op, const unsigned char *payload, size_t len);
 
 #endif 

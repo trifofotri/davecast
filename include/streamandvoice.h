@@ -5,5 +5,6 @@
 
 void request_stream(struct dcast_session* session);
 void join_voice(struct dcast_session *session);
+void dcast_start_media(struct dcast_session* session);
 
 #endif

@@ -83,3 +83,22 @@ void dcast_ws_send(dcast_socket* wsock, cJSON* json_obj) {
     free(json_str);
     cJSON_Delete(json_obj);
 }
+
+void dcast_ws_send_binary(dcast_socket* wsock, unsigned char op, const unsigned char *payload, size_t len) {
+    unsigned char *buf = malloc(len + 1);
+    buf[0] = op;
+    if (len) {
+        memcpy(buf + 1, payload, len);
+    }
+    size_t sent = 0;
+    CURLcode r;
+    int tries = 0;
+    do {
+        r = curl_ws_send(wsock->c, buf, len + 1, &sent, 0, CURLWS_BINARY);
+        if (r == CURLE_AGAIN) {
+            usleep(10000);
+        }
+    } while (r == CURLE_AGAIN && ++tries < 500);
+    free(buf);
+    if (r != CURLE_OK) fprintf(stderr, "[%s] binary send failed\n", wsock->name);
+}

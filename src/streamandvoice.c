@@ -57,3 +57,39 @@ void request_stream(struct dcast_session* session) {
 
     dcast_ws_send(session->gateway_wsocket, o);
 }
+
+void dcast_start_media(struct dcast_session* session) {
+    char url[512];
+    snprintf(url, sizeof(url), "wss://%s/?v=9", session->supdate_endpoint);
+
+    session->media_wsocket = dcast_ws_connect(url, "media");
+
+    cJSON *stream = cJSON_CreateObject();
+
+    cJSON_AddStringToObject(stream, "type", "screen");
+    cJSON_AddStringToObject(stream, "rid", "100");
+    cJSON_AddNumberToObject(stream, "quality", 100);
+
+    // streams array
+    cJSON *streams = cJSON_CreateArray();
+    cJSON_AddItemToArray(streams, stream);
+
+    /* OP 0 = media identify */
+    cJSON *d = cJSON_CreateObject();
+
+    cJSON_AddStringToObject(d, "server_id", session->cfg->guild_id);
+    cJSON_AddStringToObject(d, "channel_id", session->cfg->channel_id);
+    cJSON_AddStringToObject(d, "user_id", session->user_id);
+    cJSON_AddStringToObject(d, "session_id", session->session_id);
+    cJSON_AddStringToObject(d, "token", session->supdate_token);
+    cJSON_AddNumberToObject(d, "max_dave_protocol_version", 1);
+    cJSON_AddBoolToObject(d, "video", 1);
+    cJSON_AddItemToObject(d, "streams", streams);
+
+    cJSON *o = cJSON_CreateObject();
+
+    cJSON_AddNumberToObject(o, "op", 0);
+    cJSON_AddItemToObject(o, "d", d);
+
+    dcast_ws_send(session->media_wsocket, o);
+}

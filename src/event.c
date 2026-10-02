@@ -1,6 +1,8 @@
 #include <streamandvoice.h>
 #include <davecast.h>
 #include <cjson/cJSON.h>
+#include <dave/dave.h>
+#include <dcast_dave.h>
 #include <event.h>
 #include <stdio.h>
 #include <string.h>
@@ -36,16 +38,16 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
         const char *channel_id_string = cJSON_GetStringValue(channel_id);
 
         if (user_id_string && strcmp(user_id_string, session->user_id) == 0) {
-            printf("[dispatcher] [VOICE_STATE_UPDATE]: channel=%s\n", channel_id_string ? channel_id_string : "none");
+            printf("[dispatcher] [VOICE_STATE_UPDATE]: channel: %s\n", channel_id_string ? channel_id_string : "none");
 
             if (channel_id_string && !session->stream_requested) {
                 request_stream(session); /* request stream immediately */
             }
         }
     } else if (strcmp(event_type_string, "STREAM_CREATE") == 0) {
-        cJSON* rtc_server  = cJSON_GetObjectItem(event_data, "rtc_server_id");
+        cJSON* rtc_server = cJSON_GetObjectItem(event_data, "rtc_server_id");
         cJSON* rtc_channel = cJSON_GetObjectItem(event_data, "rtc_channel_id");
-        cJSON* stream_key  = cJSON_GetObjectItem(event_data, "stream_key");
+        cJSON* stream_key = cJSON_GetObjectItem(event_data, "stream_key");
 
         char* rtc_server_string  = cJSON_GetStringValue(rtc_server);
         char* rtc_channel_string = cJSON_GetStringValue(rtc_channel);
@@ -58,6 +60,27 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
         snprintf(session->stream_key,  sizeof(session->stream_key),  "%s", stream_key_string);
 
         printf("[dispatcher] [STREAM_CREATE]: rtc_server: %s rtc_channel: %s key: %s\n", session->rtc_server, session->rtc_channel, session->stream_key);
-   
+        
+        dcast_dave_ensure_session(session);
+    } else if (strcmp(event_type_string, "STREAM_SERVER_UPDATE") == 0) {
+        cJSON* endpoint  = cJSON_GetObjectItem(event_data, "endpoint");
+        char* endpoint_string  = cJSON_GetStringValue(endpoint);
+
+        if (!endpoint || ! endpoint_string) {
+            puts("[dispatcher] [STREAM_SERVER_UPDATE]: STREAM_SERVER_UPDATE with null endpoint!!!");
+            return;
+        }
+
+        cJSON* token  = cJSON_GetObjectItem(event_data, "token");
+        char* token_string  = cJSON_GetStringValue(token);
+
+        snprintf(session->supdate_endpoint,  sizeof(session->supdate_endpoint),  "%s", endpoint_string);
+        snprintf(session->supdate_token,  sizeof(session->supdate_token),  "%s", token_string);
+        session->havesupdate = 1;
+
+        printf("[dispatcher] [STREAM_SERVER_UPDATE]: endpoint: %s\n", endpoint_string);
+        if (!session->media_wsocket) {
+            dcast_start_media(session);
+        }
     }
 }

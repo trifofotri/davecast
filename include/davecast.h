@@ -35,6 +35,7 @@ typedef struct dcast_config {
 
 typedef struct dcast_session {
     dcast_socket* gateway_wsocket;
+    dcast_socket* media_wsocket;
     const dcast_config* cfg;
     int seq;
     char user_id[32];
@@ -44,6 +45,10 @@ typedef struct dcast_session {
     int identified;
     char rtc_channel[32];
     char rtc_server[32];
+    unsigned a_ssrc, v_ssrc, r_ssrc; // dave bs
+    char supdate_token[128];
+    char supdate_endpoint[256];
+    int havesupdate;
 } dcast_session;
 
 dcast_session *dcast_connect(const dcast_config *cfg);
