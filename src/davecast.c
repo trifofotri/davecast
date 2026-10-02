@@ -29,79 +29,83 @@ int dcast_poll(struct dcast_session* session, int timeout) {
 
     int gw_pump_res = dcast_ws_pump(gway_sock);
     if (gw_pump_res < 0) return 1; /* connection closed */
-    if (gw_pump_res != 1) return 0; // gw_pump_res = 1 means ws got something
-
-    cJSON* json = cJSON_Parse(gway_sock->buf);
-    if (!json) {
-        cJSON_Delete(json);
-        return 1;
-    }
-
-    cJSON *seq = cJSON_GetObjectItem(json, "s");
-    if (seq) {
-        session->seq = seq->valueint;
-    }
-
-    cJSON *op = cJSON_GetObjectItem(json, "op");
-    if (!cJSON_IsNumber(op)) {
-        cJSON_Delete(json);
-        return 1;
-    }
-
-    switch (op->valueint) { 
-        case 10: {
-            cJSON *d = cJSON_GetObjectItem(json, "d");
-            if (d) {
-                cJSON *heartbeat = cJSON_GetObjectItem(d, "heartbeat_interval");
-                if (!cJSON_IsNumber(heartbeat)) return 1;
-                gway_sock->hb_ms = heartbeat->valueint;
-
-                dcast_identify(gway_sock, session->cfg); /* identify ourselves -> identify.c */
-
-                gway_sock->next_hb = dch_now_ms() + gway_sock->hb_ms / 2;
-                session->identified = 1;
+    if (gw_pump_res == 1) {
+        cJSON* json = cJSON_Parse(gway_sock->buf);
+        if (json) { // gw_pump_res = 1 means ws got something
+            cJSON *seq = cJSON_GetObjectItem(json, "s");
+            if (seq) {
+                session->seq = seq->valueint;
             }
-            break;
-        }
-        
-        /* dispatch event */
-        case 0: {
-            dcast_dispatch_event(session, json);
-            break;
-        }
 
-        /* heartbeat event */
-        case 1: {
-            cJSON* payload = cJSON_CreateObject();
-            cJSON_AddNumberToObject(payload, "op", 1);
-            if (session->seq > 0) {
-                cJSON_AddNumberToObject(payload, "d", session->seq);
-            } else { 
-                cJSON_AddNullToObject(payload, "d");
+            cJSON *op = cJSON_GetObjectItem(json, "op");
+            if (!cJSON_IsNumber(op)) {
+                cJSON_Delete(json);
+                return 1;
             }
-            dcast_ws_send(gway_sock, payload);
 
-            break;
-        }
+            switch (op->valueint) { 
+                case 10: {
+                    cJSON *d = cJSON_GetObjectItem(json, "d");
+                    if (d) {
+                        cJSON *heartbeat = cJSON_GetObjectItem(d, "heartbeat_interval");
+                        if (!cJSON_IsNumber(heartbeat)) return 1;
+                        gway_sock->hb_ms = heartbeat->valueint;
 
-        case 7: {
-            printf("[POLL] op: 7, gateway wants reconnect.\n");
-            break;
-        }
+                        dcast_identify(gway_sock, session->cfg); /* identify ourselves -> identify.c */
 
-        case 9: {
-            printf("[POLL] op: 9, INVALID SESSION, bad token or something.\n");
-            break;
-        }
-    }
+                        gway_sock->next_hb = dch_now_ms() + gway_sock->hb_ms / 2;
+                        session->identified = 1;
+                    }
+                    break;
+                }
+                
+                /* dispatch event */
+                case 0: {
+                    dcast_dispatch_event(session, json);
+                    break;
+                }
+
+                /* heartbeat event */
+                case 1: {
+                    cJSON* payload = cJSON_CreateObject();
+                    cJSON_AddNumberToObject(payload, "op", 1);
+                    if (session->seq > 0) {
+                        cJSON_AddNumberToObject(payload, "d", session->seq);
+                    } else { 
+                        cJSON_AddNullToObject(payload, "d");
+                    }
+                    dcast_ws_send(gway_sock, payload);
+
+                    break;
+                }
+
+                case 7: {
+                    printf("[POLL] op: 7, gateway wants reconnect.\n");
+                    break;
+                }
+
+                case 9: {
+                    printf("[POLL] op: 9, INVALID SESSION, bad token or something.\n");
+                    break;
+                }
+            }
+            cJSON_Delete(json); // free
+        } 
+    }  
 
     if (session->media_wsocket) {
         int mw_pump_res = dcast_ws_pump(session->media_wsocket);
         if (mw_pump_res != 1) return 0;
-
-        dcast_dave_on_binary(session, (const unsigned char *) session->media_wsocket->buf, session->media_wsocket->mlen);
+        if (session->media_wsocket->buf[0] == '{') { // check if json or binary
+            cJSON* media_json = cJSON_Parse(session->media_wsocket->buf);
+            if (media_json) {
+                //dcast_on_media(session, media_json);
+                cJSON_Delete(media_json);
+            }
+        } else {
+            /* dave binary frame or whatever */
+            dcast_dave_on_binary(session, (const unsigned char *) session->media_wsocket->buf, session->media_wsocket->mlen);
+        }
     }
-
-    cJSON_Delete(json); // free
     return 0;
 }

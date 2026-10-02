@@ -77,8 +77,8 @@ void dcast_start_media(struct dcast_session* session) {
     /* OP 0 = media identify */
     cJSON *d = cJSON_CreateObject();
 
-    cJSON_AddStringToObject(d, "server_id", session->cfg->guild_id);
-    cJSON_AddStringToObject(d, "channel_id", session->cfg->channel_id);
+    cJSON_AddStringToObject(d, "server_id", session->rtc_server);
+    cJSON_AddStringToObject(d, "channel_id", session->rtc_channel);
     cJSON_AddStringToObject(d, "user_id", session->user_id);
     cJSON_AddStringToObject(d, "session_id", session->session_id);
     cJSON_AddStringToObject(d, "token", session->supdate_token);

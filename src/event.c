@@ -71,8 +71,8 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
             return;
         }
 
-        cJSON* token  = cJSON_GetObjectItem(event_data, "token");
-        char* token_string  = cJSON_GetStringValue(token);
+        cJSON* token = cJSON_GetObjectItem(event_data, "token");
+        char* token_string = cJSON_GetStringValue(token);
 
         snprintf(session->supdate_endpoint,  sizeof(session->supdate_endpoint),  "%s", endpoint_string);
         snprintf(session->supdate_token,  sizeof(session->supdate_token),  "%s", token_string);
