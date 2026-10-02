@@ -42,5 +42,22 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
                 request_stream(session); /* request stream immediately */
             }
         }
+    } else if (strcmp(event_type_string, "STREAM_CREATE") == 0) {
+        cJSON* rtc_server  = cJSON_GetObjectItem(event_data, "rtc_server_id");
+        cJSON* rtc_channel = cJSON_GetObjectItem(event_data, "rtc_channel_id");
+        cJSON* stream_key  = cJSON_GetObjectItem(event_data, "stream_key");
+
+        char* rtc_server_string  = cJSON_GetStringValue(rtc_server);
+        char* rtc_channel_string = cJSON_GetStringValue(rtc_channel);
+        char* stream_key_string  = cJSON_GetStringValue(stream_key);
+
+        if (!rtc_server_string || !rtc_channel_string || !stream_key_string) return;
+
+        snprintf(session->rtc_server,  sizeof(session->rtc_server),  "%s", rtc_server_string);
+        snprintf(session->rtc_channel, sizeof(session->rtc_channel), "%s", rtc_channel_string);
+        snprintf(session->stream_key,  sizeof(session->stream_key),  "%s", stream_key_string);
+
+        printf("[dispatcher] [STREAM_CREATE]: rtc_server: %s rtc_channel: %s key: %s\n", session->rtc_server, session->rtc_channel, session->stream_key);
+   
     }
 }

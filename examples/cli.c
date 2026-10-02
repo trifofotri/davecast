@@ -18,6 +18,10 @@ int main(int argc, char** argv) {
     cfg->capabilities = 1767421;
     cfg->token = argv[1];
 
-    dcast_event_cb cb;
-    dcast_connect(cfg, cb, NULL);
+    
+    struct dcast_session* session = dcast_connect(cfg);
+
+    for (;;) {
+        dcast_poll(session, 2);
+    }
 }
