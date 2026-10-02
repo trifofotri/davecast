@@ -1,0 +1,26 @@
+[
+{
+  "directory": "/home/a/Documents/Projects/davecast/build",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party  -o CMakeFiles/davecast.dir/src/davecast.c.o -c /home/a/Documents/Projects/davecast/src/davecast.c",
+  "file": "/home/a/Documents/Projects/davecast/src/davecast.c",
+  "output": "CMakeFiles/davecast.dir/src/davecast.c.o"
+},
+{
+  "directory": "/home/a/Documents/Projects/davecast/build",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party  -o CMakeFiles/davecast.dir/src/ws.c.o -c /home/a/Documents/Projects/davecast/src/ws.c",
+  "file": "/home/a/Documents/Projects/davecast/src/ws.c",
+  "output": "CMakeFiles/davecast.dir/src/ws.c.o"
+},
+{
+  "directory": "/home/a/Documents/Projects/davecast/build",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party  -o CMakeFiles/davecast.dir/third_party/cjson/cJSON.c.o -c /home/a/Documents/Projects/davecast/third_party/cjson/cJSON.c",
+  "file": "/home/a/Documents/Projects/davecast/third_party/cjson/cJSON.c",
+  "output": "CMakeFiles/davecast.dir/third_party/cjson/cJSON.c.o"
+},
+{
+  "directory": "/home/a/Documents/Projects/davecast/build/examples",
+  "command": "/usr/bin/cc  -I/home/a/Documents/Projects/davecast/include -I/home/a/Documents/Projects/davecast/third_party  -o CMakeFiles/davecast-cli.dir/cli.c.o -c /home/a/Documents/Projects/davecast/examples/cli.c",
+  "file": "/home/a/Documents/Projects/davecast/examples/cli.c",
+  "output": "examples/CMakeFiles/davecast-cli.dir/cli.c.o"
+}
+]
