@@ -1,3 +1,4 @@
+#include <dcast_media.h>
 #include <davecast.h>
 #include <stdlib.h>
 #include <useful.h>
@@ -29,6 +30,7 @@ int dcast_poll(struct dcast_session* session, int timeout) {
 
     int gw_pump_res = dcast_ws_pump(gway_sock);
     if (gw_pump_res < 0) return 1; /* connection closed */
+    
     if (gw_pump_res == 1) {
         cJSON* json = cJSON_Parse(gway_sock->buf);
         if (json) { // gw_pump_res = 1 means ws got something
@@ -99,7 +101,7 @@ int dcast_poll(struct dcast_session* session, int timeout) {
         if (session->media_wsocket->buf[0] == '{') { // check if json or binary
             cJSON* media_json = cJSON_Parse(session->media_wsocket->buf);
             if (media_json) {
-                //dcast_on_media(session, media_json);
+                dcast_on_media(session, media_json);
                 cJSON_Delete(media_json);
             }
         } else {

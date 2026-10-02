@@ -38,6 +38,7 @@ typedef struct dcast_session {
     dcast_socket* media_wsocket;
     const dcast_config* cfg;
     int seq;
+    int media_seq;
     char user_id[32];
     char session_id[128];
     int stream_requested;
@@ -49,6 +50,11 @@ typedef struct dcast_session {
     char supdate_token[128];
     char supdate_endpoint[256];
     int havesupdate;
+    char media_ip[64];
+    int media_port;
+    int udp_fd;
+    char pub_ip[72];
+    int pub_port;
 } dcast_session;
 
 dcast_session *dcast_connect(const dcast_config *cfg);
