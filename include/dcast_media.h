@@ -7,6 +7,4 @@
 
 void dcast_on_media(struct dcast_session* session, cJSON* json_obj);
 
-extern struct sockaddr_in media_addr; 
-
 #endif

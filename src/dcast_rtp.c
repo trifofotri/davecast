@@ -1,6 +1,8 @@
 // dcast_rtp.c
+#include <arpa/inet.h>
 #include <davecast.h>
 #include <dcast_dave.h>
+#include <errno.h>
 #include <openssl/evp.h>
 #include <string.h>
 #include <stdio.h>
@@ -56,7 +58,14 @@ static void send_rtp_packet(struct dcast_session *s, int marker, const unsigned 
         return;
     }
     memcpy(out + 12 + clen, nonce, 4);
-    sendto(s->udp_fd, out, 12 + clen + 4, 0, (struct sockaddr *)&s->media_addr, sizeof s->media_addr);
+    
+    ssize_t sent = sendto(s->udp_fd, out, 12 + clen + 4, 0, (struct sockaddr *)&s->media_addr, sizeof s->media_addr);
+    if (sent < 0) {
+        static int warned = 0;
+        if (!warned++) {
+            fprintf(stderr, "[rtp] sendto failed: %s (dest %s:%d)\n", strerror(errno), inet_ntoa(s->media_addr.sin_addr), ntohs(s->media_addr.sin_port));
+        }
+    }
     s->rtp_seq++; s->gcm_counter++;
 }
 

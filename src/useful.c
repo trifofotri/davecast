@@ -25,7 +25,7 @@ void dch_udp_discover(struct dcast_session* session) {
     req[4] = session->a_ssrc >> 24; req[5] = session->a_ssrc >> 16;
     req[6] = session->a_ssrc >> 8;  req[7] = session->a_ssrc;
 
-    media_addr = sa;
+    session->media_addr = sa;
     
     session->udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct timeval tv = {5, 0};

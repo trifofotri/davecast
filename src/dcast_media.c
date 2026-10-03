@@ -6,8 +6,6 @@
 #include <useful.h>
 #include <dcast_media.h>
 
-struct sockaddr_in media_addr;
-
 void dcast_mediaop12(struct dcast_session* session, int active) {
     cJSON *res = cJSON_CreateObject();
     cJSON_AddStringToObject(res, "type", "fixed");
