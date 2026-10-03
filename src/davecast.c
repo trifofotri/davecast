@@ -6,6 +6,7 @@
 #include <identify.h>
 #include <event.h>
 #include <dcast_dave.h>
+#include <dcast_rtp.h>
 
 #include <cjson/cJSON.h>
 
@@ -26,8 +27,28 @@ struct dcast_session* dcast_connect(const dcast_config *cfg) {
 }
 
 int dcast_poll(struct dcast_session* session, int timeout) {
-    
     struct dcast_socket* gway_sock = session->gateway_wsocket;
+    unsigned long long now = dch_now_ms();
+
+    // heartbeats uh
+    if (session->identified && gway_sock->hb_ms && now >= gway_sock->next_hb) {
+        cJSON* payload = cJSON_CreateObject();
+        cJSON_AddNumberToObject(payload, "op", 1);
+        if (session->seq > 0) cJSON_AddNumberToObject(payload, "d", session->seq);
+        else cJSON_AddNullToObject(payload, "d");
+        dcast_ws_send(gway_sock, payload);
+        gway_sock->next_hb = now + gway_sock->hb_ms;
+    }
+    if (session->media_wsocket && session->media_wsocket->hb_ms && now >= session->media_wsocket->next_hb) {
+        cJSON* d = cJSON_CreateObject();
+        cJSON_AddNumberToObject(d, "t", (double)now);
+        cJSON_AddNumberToObject(d, "seq_ack", session->media_seq);
+        cJSON* o = cJSON_CreateObject();
+        cJSON_AddNumberToObject(o, "op", 3);
+        cJSON_AddItemToObject(o, "d", d);
+        dcast_ws_send(session->media_wsocket, o);
+        session->media_wsocket->next_hb = now + session->media_wsocket->hb_ms;
+    }
 
     int gw_pump_res = dcast_ws_pump(gway_sock);
     if (gw_pump_res < 0) return 1; /* connection closed */
@@ -98,17 +119,21 @@ int dcast_poll(struct dcast_session* session, int timeout) {
 
     if (session->media_wsocket) {
         int mw_pump_res = dcast_ws_pump(session->media_wsocket);
-        if (mw_pump_res != 1) return 0;
-        if (session->media_wsocket->buf[0] == '{') { // check if json or binary
-            cJSON* media_json = cJSON_Parse(session->media_wsocket->buf);
-            if (media_json) {
-                dcast_on_media(session, media_json);
-                cJSON_Delete(media_json);
+        if (mw_pump_res < 0) return 1;
+        if (mw_pump_res == 1) {
+            if (session->media_wsocket->buf[0] == '{') {
+                cJSON* media_json = cJSON_Parse(session->media_wsocket->buf);
+                if (media_json) {
+                    dcast_on_media(session, media_json);
+                    cJSON_Delete(media_json); }
+            } else {
+                dcast_dave_on_binary(session, (const unsigned char *) session->media_wsocket->buf, session->media_wsocket->mlen);
             }
-        } else {
-            /* dave binary frame or whatever */
-            dcast_dave_on_binary(session, (const unsigned char *) session->media_wsocket->buf, session->media_wsocket->mlen);
         }
     }
     return 0;
+}
+
+int dcast_send_video(dcast_session *s, const void *annexb, size_t len, uint64_t pts_us, int keyframe) {
+    return dcast_rtp_send_video(s, annexb, len, pts_us, keyframe);
 }

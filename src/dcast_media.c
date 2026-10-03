@@ -2,6 +2,7 @@
 #include "davecast.h"
 #include <dcast_dave.h>
 #include <identify.h>
+#include <stdlib.h>
 #include <useful.h>
 #include <dcast_media.h>
 
@@ -177,6 +178,7 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
             {
                 int dv = cJSON_GetObjectItem(m_data, "dave_protocol_version")->valueint;
 
+                session->dave_active = (dv > 0);
                 if (dv > 0) {
                     dcast_dave_state.version = (uint16_t) dv;
                     dcast_dave_ensure_session(session);
@@ -219,6 +221,13 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
             char *uid = cJSON_GetStringValue(cJSON_GetObjectItem(m_data, "user_id"));
             if (uid) dcast_dave_untrack_user(uid);
             printf("[media]: client disconnect %s\n", uid ? uid : "?");
+            break;
+        }
+
+        case 15: {
+            char *dump = cJSON_PrintUnformatted(m_data);
+            printf("[media]: quality feedback: %s\n", dump);
+            free(dump);
             break;
         }
 

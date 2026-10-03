@@ -2,6 +2,7 @@
 #define DAVECAST_H
 
 #include "ws.h"
+#include <netinet/in.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -56,8 +57,13 @@ typedef struct dcast_session {
     char pub_ip[72];
     int pub_port;
     unsigned char key[32];
+    struct sockaddr_in media_addr;
     int have_key;
     int live;
+    int dave_active;         // set true when SESSION_DESCRIPTION reports dave_protocol_version > 0
+    uint16_t rtp_seq;
+    uint32_t rtp_ts;
+    uint32_t gcm_counter;
 } dcast_session;
 
 dcast_session *dcast_connect(const dcast_config *cfg);
