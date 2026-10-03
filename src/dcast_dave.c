@@ -64,7 +64,7 @@ void dcast_dave_ensure_session(struct dcast_session *session) {
         dcast_ws_send_binary(session->media_wsocket, 26, kp, kplen);
         daveFree(kp);
     } else {
-        fprintf(stderr, "[dave] empty key package -- group id or external sender is probably wrong\n");
+        fprintf(stderr, "[dave] empty key package, group id or external sender is probably wrong\n");
     }
 }
 
@@ -81,7 +81,7 @@ void dcast_dave_on_established(struct dcast_session *session) {
     daveKeyRatchetDestroy(rk);
     daveEncryptorAssignSsrcToCodec(dcast_dave_state.enc, session->v_ssrc, DAVE_CODEC_H264);
     daveEncryptorAssignSsrcToCodec(dcast_dave_state.enc, session->a_ssrc, DAVE_CODEC_OPUS);
-    printf("*** DAVE E2EE established\n");
+    printf("[dave]: DAVE E2EE established!!!!!!\n");
 }
 
 /* op25 payload: ExternalSender bytes */
@@ -91,7 +91,7 @@ void dcast_dave_on_external_sender(struct dcast_session *session, const unsigned
     memcpy(dcast_dave_state.ext_sender, b, n);
     dcast_dave_state.ext_sender_len = n;
     dcast_dave_state.have_ext_sender = 1;
-    printf("[dave] << external sender package (%zu bytes)\n", n);
+    printf("[dave]:  external sender package (%zu bytes)\n", n);
     dcast_dave_ensure_session(session);
 }
 
@@ -100,8 +100,10 @@ void dcast_dave_on_proposals(struct dcast_session *session, const unsigned char 
     if (!dcast_dave_state.sess) { fprintf(stderr, "[dave] op27 with no session yet\n"); return; }
     const char *rec[DAVE_MAX_USERS + 1];
     int nrec = dcast_dave_recognized(session, rec);
-    uint8_t *out = NULL; size_t outlen = 0;
+    uint8_t *out = NULL;
+    size_t outlen = 0;
     daveSessionProcessProposals(dcast_dave_state.sess, b, n, rec, nrec, &out, &outlen);
+    
     if (out && outlen) {
         dcast_ws_send_binary(session->media_wsocket, 28, out, outlen);
         daveFree(out);
@@ -141,7 +143,7 @@ void dcast_dave_on_commit(struct dcast_session *session, const unsigned char *b,
         return;
     }
 
-    printf("[dave] commit OK, tid=%u\n", tid);
+    printf("[dave] commit OK, tid: %u\n", tid);
     if (!dcast_dave_state.established) dcast_dave_on_established(session);
     cJSON *o = cJSON_CreateObject();
     cJSON_AddNumberToObject(o, "op", 23);
@@ -193,7 +195,7 @@ void dcast_dave_on_binary(struct dcast_session *session, const unsigned char *bu
         case 27: dcast_dave_on_proposals(session, payload, plen); break;
         case 29: dcast_dave_on_commit(session, payload, plen); break;
         case 30: dcast_dave_on_welcome(session, payload, plen); break;
-        default: printf("[dave] << unhandled binary op %u (%zu bytes)\n", op, plen);
+        default: printf("[dave]: unhandled binary opcode: %u ( %zu bytes )\n", op, plen);
     }
 }
 

@@ -55,6 +55,9 @@ typedef struct dcast_session {
     int udp_fd;
     char pub_ip[72];
     int pub_port;
+    unsigned char key[32];
+    int have_key;
+    int live;
 } dcast_session;
 
 dcast_session *dcast_connect(const dcast_config *cfg);

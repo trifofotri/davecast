@@ -37,7 +37,7 @@ void dcast_mediaop12(struct dcast_session* session, int active) {
     cJSON_AddNumberToObject(o12, "op", 12);
     cJSON_AddItemToObject(o12, "d", d);
 
-    dcast_ws_send(session->gateway_wsocket, o12);
+    dcast_ws_send(session->media_wsocket, o12);
 }
 
 void dcast_select_protocol(struct dcast_session* session) {
@@ -90,7 +90,7 @@ void dcast_select_protocol(struct dcast_session* session) {
     cJSON_AddNumberToObject(o1, "op", 1);
     cJSON_AddItemToObject(o1, "d", d);
 
-    dcast_ws_send(session->gateway_wsocket, o1);
+    dcast_ws_send(session->media_wsocket, o1);
 }
 
 void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
@@ -118,8 +118,8 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
             session->a_ssrc = ssrc->valueint;
 
             cJSON *port = cJSON_GetObjectItem(m_data, "port");
-            if (!cJSON_IsNumber(ssrc)) return;
-            session->media_port = ssrc->valueint;
+            if (!cJSON_IsNumber(port)) return;
+            session->media_port = port->valueint;
 
             cJSON *ip = cJSON_GetObjectItem(m_data, "ip");
             char* ip_string = cJSON_GetStringValue(ip);
@@ -139,7 +139,7 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
                 cJSON *o16 = cJSON_CreateObject();
                 cJSON_AddNumberToObject(o16, "op", 16);
                 cJSON_AddItemToObject(o16, "d", cJSON_CreateObject());
-                dcast_ws_send(session->gateway_wsocket, o16);
+                dcast_ws_send(session->media_wsocket, o16);
             }
             dcast_mediaop12(session, 0); // declare stream, inactive
             dch_udp_discover(session);
@@ -154,10 +154,71 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
                 cJSON *o5 = cJSON_CreateObject();
                 cJSON_AddNumberToObject(o5, "op", 5);
                 cJSON_AddItemToObject(o5, "d", sp);
-                dcast_ws_send(session->gateway_wsocket, o5);
+                dcast_ws_send(session->media_wsocket, o5);
             }
 
             dcast_mediaop12(session, 1); // finally go live.
+            break;
+        }
+
+        case 4: { /* SESSION_DESCRIPTION */
+            cJSON *secret_key = cJSON_GetObjectItem(m_data, "secret_key");
+            int n = secret_key ? cJSON_GetArraySize(secret_key) : 0;
+
+            if (n == 32) {
+                for (int i = 0; i < 32; i++) {
+                    session->key[i] = (unsigned char) cJSON_GetArrayItem(secret_key, i)->valueint;
+                }
+                session->have_key = 1;
+            }
+
+            printf("[media] [SESSION_DESCRIPTION] mode: %s video: %s dave: %d\n", cJSON_GetObjectItem(m_data, "mode")->valuestring, cJSON_GetObjectItem(m_data, "video_codec")->valuestring, cJSON_GetObjectItem(m_data, "dave_protocol_version")->valueint);
+            
+            {
+                int dv = cJSON_GetObjectItem(m_data, "dave_protocol_version")->valueint;
+
+                if (dv > 0) {
+                    dcast_dave_state.version = (uint16_t) dv;
+                    dcast_dave_ensure_session(session);
+                }
+            }
+
+            if (session->have_key) {
+                char hx[65];
+
+                for (int i = 0; i < 32; i++) {
+                    sprintf(hx + 2 * i, "%02x", session->key[i]);
+                }
+                printf("key_hex: %s\n key_csv:", hx);
+
+                for (int i = 0; i < 32; i++) {
+                    printf(i ? ",%u" : "%u", session->key[i]);
+                }
+                printf("\n");
+
+                session->live = 1;
+
+                printf("[media] stream session established.\n");
+            }
+
+            break;
+        }
+
+        case 11: {
+            cJSON *ids = cJSON_GetObjectItem(m_data, "user_ids");
+            int n = ids ? cJSON_GetArraySize(ids) : 0;
+            for (int i = 0; i < n; i++) {
+                char *uid = cJSON_GetStringValue(cJSON_GetArrayItem(ids, i));
+                if (uid) dcast_dave_track_user(uid);
+            }
+            printf("[media]: clients connect (%d)\n", n);
+            break;
+        }
+
+        case 13: {
+            char *uid = cJSON_GetStringValue(cJSON_GetObjectItem(m_data, "user_id"));
+            if (uid) dcast_dave_untrack_user(uid);
+            printf("[media]: client disconnect %s\n", uid ? uid : "?");
             break;
         }
 

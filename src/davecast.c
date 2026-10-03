@@ -10,7 +10,7 @@
 #include <cjson/cJSON.h>
 
 struct dcast_session* dcast_connect(const dcast_config *cfg) {
-    struct dcast_session* session = malloc(sizeof(dcast_session)); 
+    struct dcast_session* session = calloc(1, sizeof(dcast_session)); 
     if (!session) return NULL;
     session->cfg = cfg;
 
@@ -26,6 +26,7 @@ struct dcast_session* dcast_connect(const dcast_config *cfg) {
 }
 
 int dcast_poll(struct dcast_session* session, int timeout) {
+    
     struct dcast_socket* gway_sock = session->gateway_wsocket;
 
     int gw_pump_res = dcast_ws_pump(gway_sock);
