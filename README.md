@@ -6,6 +6,8 @@ You can use this to go live from plain C lol, it uses libcurl websockets and lib
 
 You can feed this your own annexb H264 frames and stuff, it uses `andaead_aes256_gcm_rtpsize` for encryption.
 
+<img width="880" height="653" alt="image" src="https://github.com/user-attachments/assets/7c8c272d-b79e-4e79-b537-f78bb0f151e9" />
+
 ## Status
 
 Working E2E:
