@@ -29,7 +29,8 @@ void dch_udp_discover(struct dcast_session* session) {
     
     session->udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct timeval tv = {5, 0};
-    setsockopt(session->udp_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+    int sndbuf = 1 << 20;
+    setsockopt(session->udp_fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof sndbuf);
     
     if (sendto(session->udp_fd, req, 74, 0, (struct sockaddr *)&sa, sizeof sa) != 74) return;
 

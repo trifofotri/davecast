@@ -59,12 +59,23 @@ static void send_rtp_packet(struct dcast_session *s, int marker, const unsigned 
     }
     memcpy(out + 12 + clen, nonce, 4);
     
-    ssize_t sent = sendto(s->udp_fd, out, 12 + clen + 4, 0, (struct sockaddr *)&s->media_addr, sizeof s->media_addr);
-    if (sent < 0) {
-        static int warned = 0;
-        if (!warned++) {
-            fprintf(stderr, "[rtp] sendto failed: %s (dest %s:%d)\n", strerror(errno), inet_ntoa(s->media_addr.sin_addr), ntohs(s->media_addr.sin_port));
+    size_t total = 12 + clen + 4;
+    int tries = 0;
+    ssize_t sent;
+    for (;;) {
+        sent = sendto(s->udp_fd, out, total, 0, (struct sockaddr *)&s->media_addr, sizeof s->media_addr);
+        if (sent >= 0) break;
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            fprintf(stderr, "[rtp] sendto failed: %s\n", strerror(errno));
+            break;
         }
+        if (++tries > 50) {
+            fprintf(stderr, "[rtp] sendto still EAGAIN after %d tries -- dropping (seq=%u)\n", tries, s->rtp_seq);
+            break;
+        }
+        fd_set wf; FD_ZERO(&wf); FD_SET(s->udp_fd, &wf);
+        struct timeval tv = {0, 2000};
+        select(s->udp_fd + 1, NULL, &wf, NULL, &tv);
     }
     s->rtp_seq++; s->gcm_counter++;
 }
