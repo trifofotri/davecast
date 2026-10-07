@@ -65,9 +65,8 @@ void dcast_select_protocol(struct dcast_session* session) {
     fclose(f);
 
     char uuid[40];
-#ifdef DCAST_DEBUG
     snprintf(uuid, sizeof uuid, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", rb[0], rb[1], rb[2], rb[3], rb[4], rb[5], rb[6], rb[7], rb[8], rb[9], rb[10], rb[11], rb[12], rb[13], rb[14], rb[15]);
-#endif
+
     cJSON *dd = cJSON_CreateObject();
     cJSON_AddStringToObject(dd, "address", session->pub_ip);
     cJSON_AddNumberToObject(dd, "port", session->pub_port);
