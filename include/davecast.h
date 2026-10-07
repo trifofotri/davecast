@@ -36,7 +36,8 @@ typedef struct dcast_config {
     unsigned capabilities;
 
     int seq;
-
+    int attach;
+    
     dcast_dave_mode dave;
     dcast_video video;
 } dcast_config;
@@ -72,11 +73,14 @@ typedef struct dcast_session {
     uint32_t rtp_ts;
     uint32_t gcm_counter;
     volatile int pli_pending;
+    uint16_t audio_rtp_seq;
+    uint32_t audio_rtp_ts;
 } dcast_session;
 
 dcast_session *dcast_connect(const dcast_config *cfg);
 
 int dcast_poll(struct dcast_session* session, int timeout_ms);
 int dcast_send_video(dcast_session *s, const void *annexb, size_t len, uint64_t pts_us, int keyframe);
+int dcast_send_audio(dcast_session *s, const void *opus, size_t len, uint64_t pts_us);
 
 #endif

@@ -68,6 +68,18 @@ void dcast_dave_ensure_session(struct dcast_session *session) {
     }
 }
 
+static void dcast_dave_refresh_encryptor(struct dcast_session *session) {
+    if (!dcast_dave_state.sess || !dcast_dave_state.enc) return;
+    DAVEKeyRatchetHandle rk = daveSessionGetKeyRatchet(dcast_dave_state.sess, session->user_id);
+    if (!rk) {
+        DCAST_DEBUG("[dave] GetKeyRatchet failed post-commit\n");
+        return;
+    }
+    daveEncryptorSetKeyRatchet(dcast_dave_state.enc, rk);
+    daveKeyRatchetDestroy(rk);
+}
+
+
 void dcast_dave_on_established(struct dcast_session *session) {
     dcast_dave_state.established = 1;
     dcast_dave_state.enc = daveEncryptorCreate();
@@ -144,7 +156,10 @@ void dcast_dave_on_commit(struct dcast_session *session, const unsigned char *b,
     }
 
     DCAST_DEBUG("[dave] commit OK, tid: %u\n", tid);
-    if (!dcast_dave_state.established) dcast_dave_on_established(session);
+    
+    if (!dcast_dave_state.established) {
+        dcast_dave_on_established(session);
+    } else dcast_dave_refresh_encryptor(session);
     cJSON *o = cJSON_CreateObject();
     cJSON_AddNumberToObject(o, "op", 23);
     cJSON_AddItemToObject(o, "d", d);
@@ -174,7 +189,10 @@ static void dcast_dave_on_welcome(struct dcast_session *session, const unsigned 
     }
     daveWelcomeResultDestroy(r);
     DCAST_DEBUG("[dave] welcome OK, tid: %u\n", tid);
-    if (!dcast_dave_state.established) dcast_dave_on_established(session);
+
+    if (!dcast_dave_state.established) {
+        dcast_dave_on_established(session);
+    } else dcast_dave_refresh_encryptor(session);
     cJSON *o = cJSON_CreateObject();
     cJSON_AddNumberToObject(o, "op", 23);
     cJSON_AddItemToObject(o, "d", d);

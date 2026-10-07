@@ -152,3 +152,7 @@ int dcast_poll(struct dcast_session* session, int timeout) {
 int dcast_send_video(dcast_session *s, const void *annexb, size_t len, uint64_t pts_us, int keyframe) {
     return dcast_rtp_send_video(s, annexb, len, pts_us, keyframe);
 }
+
+int dcast_send_audio(dcast_session *s, const void *opus, size_t len, uint64_t pts_us) {
+    return dcast_rtp_send_audio(s, opus, len, pts_us);
+}

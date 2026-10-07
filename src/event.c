@@ -28,7 +28,9 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
 
         DCAST_DEBUG("[dispatcher] [READY]: session_id: %s, user_id: %s\n", session_id_string, user_id_string);
         
-        join_voice(session); /* this will trigger the VOICE_STATE_UPDATE event which when detected will request a stream*/
+        if (!session->cfg->attach) {
+            join_voice(session); /* this will trigger the VOICE_STATE_UPDATE event which when detected will request a stream*/
+        }
         
     } else if (strcmp(event_type_string, "VOICE_STATE_UPDATE") == 0) {
         cJSON *user_id = cJSON_GetObjectItem(event_data, "user_id");
@@ -40,7 +42,7 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
         if (user_id_string && strcmp(user_id_string, session->user_id) == 0) {
             DCAST_DEBUG("[dispatcher] [VOICE_STATE_UPDATE]: channel: %s\n", channel_id_string ? channel_id_string : "none");
 
-            if (channel_id_string && !session->stream_requested) {
+            if (channel_id_string && !session->stream_requested && !strcmp(channel_id_string, session->cfg->channel_id)) {
                 request_stream(session); /* request stream immediately */
             }
         }
@@ -81,6 +83,19 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
         DCAST_DEBUG("[dispatcher] [STREAM_SERVER_UPDATE]: endpoint: %s\n", endpoint_string);
         if (!session->media_wsocket) {
             dcast_start_media(session);
+        }
+    } else if (strcmp(event_type_string, "GUILD_CREATE") == 0) {
+        cJSON *id = cJSON_GetObjectItem(event_data, "id");
+        if (session->cfg->attach && !session->stream_requested && cJSON_IsString(id) && !strcmp(id->valuestring, session->cfg->guild_id)) {
+            cJSON *vs;
+            cJSON_ArrayForEach(vs, cJSON_GetObjectItem(event_data, "voice_states")) {
+                cJSON *u = cJSON_GetObjectItem(vs, "user_id");
+                cJSON *ch = cJSON_GetObjectItem(vs, "channel_id");
+                if (cJSON_IsString(u) && !strcmp(u->valuestring, session->user_id) && cJSON_IsString(ch) && !strcmp(ch->valuestring, session->cfg->channel_id)) {
+                    request_stream(session);
+                    break;
+                }
+            }
         }
     }
 }

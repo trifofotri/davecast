@@ -12,6 +12,9 @@
 #define VIDEO_PAYLOAD_TYPE 103
 #define RTP_MAX_PAYLOAD    1100
 
+#define AUDIO_PAYLOAD_TYPE 120
+#define OPUS_SAMPLES_PER_FRAME 960
+
 static int gcm_encrypt(const unsigned char *key32, const unsigned char *nonce12, const unsigned char *aad, int aad_len, const unsigned char *pt, int pt_len, unsigned char *out, int *out_len) {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     int ok = ctx != NULL, len = 0, outl = 0, finl = 0;
@@ -30,55 +33,72 @@ static int gcm_encrypt(const unsigned char *key32, const unsigned char *nonce12,
     return 1;
 }
 
-static void send_rtp_packet(struct dcast_session *s, int marker, const unsigned char *payload, int plen) {
+static void send_rtp_packet_generic(struct dcast_session *s, int marker, const unsigned char *payload, int plen, uint8_t payload_type, uint32_t ssrc, uint16_t *seq, uint32_t ts) {
     unsigned char hdr[12];
     hdr[0] = 0x80;
-    hdr[1] = (unsigned char)((marker ? 0x80 : 0) | (VIDEO_PAYLOAD_TYPE & 0x7F));
-    hdr[2] = s->rtp_seq >> 8;
-    hdr[3] = s->rtp_seq & 0xFF;
-    hdr[4] = s->rtp_ts >> 24; 
-    hdr[5] = s->rtp_ts >> 16; 
-    hdr[6] = s->rtp_ts >> 8; 
-    hdr[7] = s->rtp_ts;
-    hdr[8] = s->v_ssrc >> 24; 
-    hdr[9] = s->v_ssrc >> 16;
-    hdr[10] = s->v_ssrc >> 8;
-    hdr[11] = s->v_ssrc;
+    hdr[1] = (unsigned char) ((marker ? 0x80 : 0) | (payload_type & 0x7F));
+    hdr[2] = (*seq) >> 8;
+    hdr[3] = (*seq) & 0xFF;
+    hdr[4] = ts >> 24;
+    hdr[5] = ts >> 16;
+    hdr[6] = ts >> 8;
+    hdr[7] = ts;
+    hdr[8] = ssrc >> 24;
+    hdr[9] = ssrc >> 16;
+    hdr[10] = ssrc >> 8;
+    hdr[11] = ssrc;
 
     unsigned char nonce[12] = {0};
-    nonce[0] = (unsigned char) (s->gcm_counter >> 24);
-    nonce[1] = (unsigned char) (s->gcm_counter >> 16);
-    nonce[2] = (unsigned char) (s->gcm_counter >> 8); 
-    nonce[3] = (unsigned char) s->gcm_counter;
+    nonce[0] = (unsigned char)(s->gcm_counter >> 24);
+    nonce[1] = (unsigned char)(s->gcm_counter >> 16);
+    nonce[2] = (unsigned char)(s->gcm_counter >> 8);
+    nonce[3] = (unsigned char)s->gcm_counter;
 
     unsigned char out[12 + RTP_MAX_PAYLOAD + 16 + 4];
     memcpy(out, hdr, 12);
     int clen = 0;
     if (!gcm_encrypt(s->key, nonce, hdr, 12, payload, plen, out + 12, &clen)) {
-        DCAST_DEBUG("[rtp] transport encrypt failed, dropping packet\n");
+        fprintf(stderr, "[rtp] transport encrypt failed, dropping packet\n");
         return;
     }
     memcpy(out + 12 + clen, nonce, 4);
-    
-    size_t total = 12 + clen + 4;
-    int tries = 0;
-    ssize_t sent;
-    for (;;) {
-        sent = sendto(s->udp_fd, out, total, 0, (struct sockaddr *)&s->media_addr, sizeof s->media_addr);
-        if (sent >= 0) break;
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            DCAST_DEBUG("[rtp] sendto failed: %s\n", strerror(errno));
-            break;
-        }
-        if (++tries > 50) {
-            DCAST_DEBUG("[rtp] sendto still EAGAIN after %d tries -- dropping (seq=%u)\n", tries, s->rtp_seq);
-            break;
-        }
-        fd_set wf; FD_ZERO(&wf); FD_SET(s->udp_fd, &wf);
-        struct timeval tv = {0, 2000};
-        select(s->udp_fd + 1, NULL, &wf, NULL, &tv);
+
+    ssize_t sent = sendto(s->udp_fd, out, 12 + clen + 4, 0, (struct sockaddr *) &s->media_addr, sizeof s->media_addr);
+    if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        fprintf(stderr, "[rtp] sendto failed: %s\n", strerror(errno));
     }
-    s->rtp_seq++; s->gcm_counter++;
+
+    (*seq)++;
+    s->gcm_counter++;
+}
+
+static void send_rtp_packet(struct dcast_session *s, int marker, const unsigned char *payload, int plen) {
+    send_rtp_packet_generic(s, marker, payload, plen, VIDEO_PAYLOAD_TYPE, s->v_ssrc, &s->rtp_seq, s->rtp_ts);
+}
+
+int dcast_rtp_send_audio(dcast_session *s, const void *opus, size_t len, uint64_t pts_us) {
+    (void)pts_us;
+    if (!s->have_key) return -1;
+
+    if (s->dave_active && dcast_dave_state.established) {
+        size_t cap = daveEncryptorGetMaxCiphertextByteSize(dcast_dave_state.enc, DAVE_MEDIA_TYPE_AUDIO, len);
+        unsigned char *ct = malloc(cap);
+        size_t written = 0;
+        DAVEEncryptorResultCode rc = daveEncryptorEncrypt(dcast_dave_state.enc, DAVE_MEDIA_TYPE_AUDIO, s->a_ssrc, opus, len, ct, cap, &written);
+        if (rc != DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS) {
+            free(ct);
+            return -2;
+        }
+        
+        send_rtp_packet_generic(s, 1, ct, (int)written, AUDIO_PAYLOAD_TYPE, s->a_ssrc, &s->audio_rtp_seq, s->audio_rtp_ts);
+        free(ct);
+    } else if (s->dave_active) {
+        return 0;
+    } else {
+        send_rtp_packet_generic(s, 1, opus, (int)len, AUDIO_PAYLOAD_TYPE, s->a_ssrc, &s->audio_rtp_seq, s->audio_rtp_ts);
+    }
+    s->audio_rtp_ts += OPUS_SAMPLES_PER_FRAME;
+    return 0;
 }
 
 static void send_nal(struct dcast_session *s, const unsigned char *nal, size_t nal_len, int marker) {
