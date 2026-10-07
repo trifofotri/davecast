@@ -171,7 +171,7 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
                 session->have_key = 1;
             }
 
-            printf("[media] [SESSION_DESCRIPTION] mode: %s video: %s dave: %d\n", cJSON_GetObjectItem(m_data, "mode")->valuestring, cJSON_GetObjectItem(m_data, "video_codec")->valuestring, cJSON_GetObjectItem(m_data, "dave_protocol_version")->valueint);
+            DCAST_DEBUG("[media] [SESSION_DESCRIPTION] mode: %s video: %s dave: %d\n", cJSON_GetObjectItem(m_data, "mode")->valuestring, cJSON_GetObjectItem(m_data, "video_codec")->valuestring, cJSON_GetObjectItem(m_data, "dave_protocol_version")->valueint);
             
             {
                 int dv = cJSON_GetObjectItem(m_data, "dave_protocol_version")->valueint;

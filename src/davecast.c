@@ -104,12 +104,12 @@ int dcast_poll(struct dcast_session* session, int timeout) {
                 }
 
                 case 7: {
-                    printf("[POLL] op: 7, gateway wants reconnect.\n");
+                    DCAST_DEBUG("[POLL] op: 7, gateway wants reconnect.\n");
                     break;
                 }
 
                 case 9: {
-                    printf("[POLL] op: 9, INVALID SESSION, bad token or something.\n");
+                    DCAST_DEBUG("[POLL] op: 9, INVALID SESSION, bad token or something.\n");
                     break;
                 }
             }
@@ -125,9 +125,24 @@ int dcast_poll(struct dcast_session* session, int timeout) {
                 cJSON* media_json = cJSON_Parse(session->media_wsocket->buf);
                 if (media_json) {
                     dcast_on_media(session, media_json);
-                    cJSON_Delete(media_json); }
+                    cJSON_Delete(media_json);
+                }
             } else {
                 dcast_dave_on_binary(session, (const unsigned char *) session->media_wsocket->buf, session->media_wsocket->mlen);
+            }
+        }
+    }
+
+    if (session->udp_fd >= 0) {
+        unsigned char rtcp[2048];
+        ssize_t n = recv(session->udp_fd, rtcp, sizeof rtcp, 0);
+        
+        if (n >= 2) {
+            int pt = rtcp[1];
+            DCAST_DEBUG("[udp]: RTCP type: %d len: %zd\n", pt, n);
+            if (pt == 206) {
+                session->pli_pending = 1;
+                DCAST_DEBUG("[udp] [PLI/FIR] requested\n");
             }
         }
     }

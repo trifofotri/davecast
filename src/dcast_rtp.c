@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #define VIDEO_PAYLOAD_TYPE 103
 #define RTP_MAX_PAYLOAD    1100
@@ -54,7 +55,7 @@ static void send_rtp_packet(struct dcast_session *s, int marker, const unsigned 
     memcpy(out, hdr, 12);
     int clen = 0;
     if (!gcm_encrypt(s->key, nonce, hdr, 12, payload, plen, out + 12, &clen)) {
-        fprintf(stderr, "[rtp] transport encrypt failed, dropping packet\n");
+        DCAST_DEBUG("[rtp] transport encrypt failed, dropping packet\n");
         return;
     }
     memcpy(out + 12 + clen, nonce, 4);
@@ -66,11 +67,11 @@ static void send_rtp_packet(struct dcast_session *s, int marker, const unsigned 
         sent = sendto(s->udp_fd, out, total, 0, (struct sockaddr *)&s->media_addr, sizeof s->media_addr);
         if (sent >= 0) break;
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            fprintf(stderr, "[rtp] sendto failed: %s\n", strerror(errno));
+            DCAST_DEBUG("[rtp] sendto failed: %s\n", strerror(errno));
             break;
         }
         if (++tries > 50) {
-            fprintf(stderr, "[rtp] sendto still EAGAIN after %d tries -- dropping (seq=%u)\n", tries, s->rtp_seq);
+            DCAST_DEBUG("[rtp] sendto still EAGAIN after %d tries -- dropping (seq=%u)\n", tries, s->rtp_seq);
             break;
         }
         fd_set wf; FD_ZERO(&wf); FD_SET(s->udp_fd, &wf);
@@ -96,6 +97,7 @@ static void send_nal(struct dcast_session *s, const unsigned char *nal, size_t n
         buf[1] = (unsigned char)((first ? 0x80 : 0) | (last ? 0x40 : 0) | nal_type);
         memcpy(buf + 2, nal + body_off, chunk);
         send_rtp_packet(s, marker && last, buf, (int)(chunk + 2));
+        if (remaining > 0) usleep(200);
         body_off += chunk; remaining -= chunk; first = 0;
     }
 }

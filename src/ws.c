@@ -1,3 +1,4 @@
+#include <davecast.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -20,7 +21,7 @@ struct dcast_socket* dcast_ws_connect(const char *url, const char *name) {
 
     curl_easy_getinfo(w->c, CURLINFO_ACTIVESOCKET, &w->fd);
     fcntl(w->fd, F_SETFL, fcntl(w->fd, F_GETFL, 0) | O_NONBLOCK);
-    printf("[%s] connected: %s\n", name, url);
+    DCAST_DEBUG("[%s] connected: %s\n", name, url);
     return w;
 }
 

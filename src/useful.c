@@ -16,7 +16,7 @@ void dch_udp_discover(struct dcast_session* session) {
     sa.sin_family = AF_INET;
     sa.sin_port = htons(session->media_port);
     if (inet_pton(AF_INET, session->media_ip, &sa.sin_addr) != 1) {
-        puts("!! bad media ip from op2");
+        DCAST_DEBUG("!! bad media ip from op2\n");
         return;
     }
 
@@ -36,7 +36,7 @@ void dch_udp_discover(struct dcast_session* session) {
 
     unsigned char res[80] = {0};
     if (recv(session->udp_fd, res, sizeof res, 0) < 74 || res[1] != 2) {
-        puts("udp discovery: no reply");
+        DCAST_DEBUG("udp discovery: no reply\n");
         return;
     }
 
@@ -47,5 +47,5 @@ void dch_udp_discover(struct dcast_session* session) {
     snprintf(session->pub_ip, sizeof session->pub_ip, "%s", ip);
     session->pub_port = ( res[72] << 8 ) | res[73];
     fcntl(session->udp_fd, F_SETFL, fcntl(session->udp_fd, F_GETFL, 0) | O_NONBLOCK);
-    printf("[udp] public endpoint: %s:%d\n", session->pub_ip, session->pub_port);
+    DCAST_DEBUG("[udp] public endpoint: %s:%d\n", session->pub_ip, session->pub_port);
 }

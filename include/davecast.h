@@ -6,6 +6,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef DCAST_DEBUG
+#define DCAST_DEBUG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define DCAST_DEBUG(...) ((void)0)
+#endif
+
 typedef enum {
     DCAST_DAVE_AUTO = 0,
     DCAST_DAVE_OFF,       /* announce 0 (dies with 4017 if enforced)     */
@@ -64,6 +70,7 @@ typedef struct dcast_session {
     uint16_t rtp_seq;
     uint32_t rtp_ts;
     uint32_t gcm_counter;
+    volatile int pli_pending;
 } dcast_session;
 
 dcast_session *dcast_connect(const dcast_config *cfg);
