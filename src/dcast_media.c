@@ -65,8 +65,9 @@ void dcast_select_protocol(struct dcast_session* session) {
     fclose(f);
 
     char uuid[40];
+#ifdef DCAST_DEBUG
     snprintf(uuid, sizeof uuid, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", rb[0], rb[1], rb[2], rb[3], rb[4], rb[5], rb[6], rb[7], rb[8], rb[9], rb[10], rb[11], rb[12], rb[13], rb[14], rb[15]);
-
+#endif
     cJSON *dd = cJSON_CreateObject();
     cJSON_AddStringToObject(dd, "address", session->pub_ip);
     cJSON_AddNumberToObject(dd, "port", session->pub_port);
@@ -107,7 +108,7 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
             if (!cJSON_IsNumber(heartbeat)) return;
             session->media_wsocket->hb_ms = heartbeat->valueint;
             session->media_wsocket->next_hb = dch_now_ms() + session->media_wsocket->hb_ms / 2;
-            printf("[media]: HELLO hb: %d ms\n", session->media_wsocket->hb_ms);
+            DCAST_DEBUG("[media]: HELLO hb: %d ms\n", session->media_wsocket->hb_ms);
             break;
         }
 
@@ -132,7 +133,7 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
                 session->r_ssrc = (unsigned) cJSON_GetObjectItem(s0, "rtx_ssrc")->valueint;
             }
 
-            printf("[media] [READY]: audio_ssrc: %u video_ssrc: %u rtx_ssrc: %u udp:%s:%d\n", session->a_ssrc, session->v_ssrc, session->r_ssrc, session->media_ip, session->media_port);
+            DCAST_DEBUG("[media] [READY]: audio_ssrc: %u video_ssrc: %u rtx_ssrc: %u udp:%s:%d\n", session->a_ssrc, session->v_ssrc, session->r_ssrc, session->media_ip, session->media_port);
             
             {   /* version ping */
                 cJSON *o16 = cJSON_CreateObject();
@@ -187,18 +188,18 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
                 char hx[65];
 
                 for (int i = 0; i < 32; i++) {
-                    sprintf(hx + 2 * i, "%02x", session->key[i]);
+                    DCAST_DEBUG(hx + 2 * i, "%02x", session->key[i]);
                 }
-                printf("key_hex: %s\n key_csv:", hx);
+                DCAST_DEBUG("key_hex: %s\n key_csv:", hx);
 
                 for (int i = 0; i < 32; i++) {
-                    printf(i ? ",%u" : "%u", session->key[i]);
+                    DCAST_DEBUG(i ? ",%u" : "%u", session->key[i]);
                 }
-                printf("\n");
+                DCAST_DEBUG("\n");
 
                 session->live = 1;
 
-                printf("[media] stream session established.\n");
+                DCAST_DEBUG("[media] stream session established.\n");
             }
 
             break;
@@ -211,26 +212,26 @@ void dcast_on_media(struct dcast_session* session, cJSON* json_obj) {
                 char *uid = cJSON_GetStringValue(cJSON_GetArrayItem(ids, i));
                 if (uid) dcast_dave_track_user(uid);
             }
-            printf("[media]: clients connect (%d)\n", n);
+            DCAST_DEBUG("[media]: clients connect (%d)\n", n);
             break;
         }
 
         case 13: {
             char *uid = cJSON_GetStringValue(cJSON_GetObjectItem(m_data, "user_id"));
             if (uid) dcast_dave_untrack_user(uid);
-            printf("[media]: client disconnect %s\n", uid ? uid : "?");
+            DCAST_DEBUG("[media]: client disconnect %s\n", uid ? uid : "?");
             break;
         }
 
         case 15: {
             char *dump = cJSON_PrintUnformatted(m_data);
-            printf("[media]: quality feedback: %s\n", dump);
+            DCAST_DEBUG("[media]: quality feedback: %s\n", dump);
             free(dump);
             break;
         }
 
         case 6: break; // heartboeat
         case 21: case 22: case 24: dcast_dave_on_json(session, op->valueint, m_data); break;
-        default: printf("[media]: unknown opcode:  %d\n", op->valueint);
+        default: DCAST_DEBUG("[media]: unknown opcode:  %d\n", op->valueint);
     }
 }

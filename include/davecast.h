@@ -7,7 +7,8 @@
 #include <stdint.h>
 
 #ifdef DCAST_DEBUG
-#define DCAST_DEBUG(...) fprintf(stderr, __VA_ARGS__)
+#define DCAST_DEBUG(fmt, ...) \
+    fprintf(stderr, "[DCAST] " fmt, ##__VA_ARGS__)
 #else
 #define DCAST_DEBUG(...) ((void)0)
 #endif

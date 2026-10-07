@@ -10,7 +10,7 @@ dave_state dcast_dave_state;
 
 void dcast_dave_fail_cb(const char *source, const char *reason, void *ud) {
     (void)ud;
-    fprintf(stderr, "[dave] MLS FAILURE in %s: %s\n", source, reason);
+    DCAST_DEBUG("[dave] MLS FAILURE in %s: %s\n", source, reason);
 }
 
 void dcast_dave_track_user(const char *uid) {
@@ -48,7 +48,7 @@ void dcast_dave_ensure_session(struct dcast_session *session) {
     if (!dcast_dave_state.session_inited) {
         dcast_dave_state.sess = daveSessionCreate(NULL, NULL, dcast_dave_fail_cb, NULL);
         if (!dcast_dave_state.sess) {
-            fprintf(stderr, "[dave] daveSessionCreate failed\n");
+            DCAST_DEBUG("[dave] daveSessionCreate failed\n");
             return;
         }
         dcast_dave_state.session_inited = 1;
@@ -64,7 +64,7 @@ void dcast_dave_ensure_session(struct dcast_session *session) {
         dcast_ws_send_binary(session->media_wsocket, 26, kp, kplen);
         daveFree(kp);
     } else {
-        fprintf(stderr, "[dave] empty key package, group id or external sender is probably wrong\n");
+        DCAST_DEBUG("[dave] empty key package, group id or external sender is probably wrong\n");
     }
 }
 
@@ -74,14 +74,14 @@ void dcast_dave_on_established(struct dcast_session *session) {
 
     DAVEKeyRatchetHandle rk = daveSessionGetKeyRatchet(dcast_dave_state.sess, session->user_id);
     if (!rk) {
-        fprintf(stderr, "[dave] GetKeyRatchet(self) failed\n");
+        DCAST_DEBUG( "[dave] GetKeyRatchet(self) failed\n");
         return;
     }
     daveEncryptorSetKeyRatchet(dcast_dave_state.enc, rk);
     daveKeyRatchetDestroy(rk);
     daveEncryptorAssignSsrcToCodec(dcast_dave_state.enc, session->v_ssrc, DAVE_CODEC_H264);
     daveEncryptorAssignSsrcToCodec(dcast_dave_state.enc, session->a_ssrc, DAVE_CODEC_OPUS);
-    printf("[dave]: DAVE E2EE established!!!!!!\n");
+    DCAST_DEBUG("[dave]: DAVE E2EE established!!!!!!\n");
 }
 
 /* op25 payload: ExternalSender bytes */
@@ -91,13 +91,13 @@ void dcast_dave_on_external_sender(struct dcast_session *session, const unsigned
     memcpy(dcast_dave_state.ext_sender, b, n);
     dcast_dave_state.ext_sender_len = n;
     dcast_dave_state.have_ext_sender = 1;
-    printf("[dave]:  external sender package (%zu bytes)\n", n);
+    DCAST_DEBUG("[dave]:  external sender package (%zu bytes)\n", n);
     dcast_dave_ensure_session(session);
 }
 
 /* op27 payload: proposals */
 void dcast_dave_on_proposals(struct dcast_session *session, const unsigned char *b, size_t n) {
-    if (!dcast_dave_state.sess) { fprintf(stderr, "[dave] op27 with no session yet\n"); return; }
+    if (!dcast_dave_state.sess) { DCAST_DEBUG("[dave] op27 with no session yet\n"); return; }
     const char *rec[DAVE_MAX_USERS + 1];
     int nrec = dcast_dave_recognized(session, rec);
     uint8_t *out = NULL;
@@ -108,7 +108,7 @@ void dcast_dave_on_proposals(struct dcast_session *session, const unsigned char 
         dcast_ws_send_binary(session->media_wsocket, 28, out, outlen);
         daveFree(out);
     } else {
-        fprintf(stderr, "[dave] ProcessProposals produced nothing\n");
+        DCAST_DEBUG("[dave] ProcessProposals produced nothing\n");
     }
 }
 
@@ -127,7 +127,7 @@ void dcast_dave_on_commit(struct dcast_session *session, const unsigned char *b,
     cJSON_AddNumberToObject(d, "transition_id", tid);
 
     if (failed) {
-        fprintf(stderr, "[dave] commit FAILED (tid=%u), sending op31, resetting\n", tid);
+        DCAST_DEBUG("[dave] commit FAILED (tid=%u), sending op31, resetting\n", tid);
         cJSON *o = cJSON_CreateObject();
         cJSON_AddNumberToObject(o, "op", 31);
         cJSON_AddItemToObject(o, "d", d);
@@ -139,11 +139,11 @@ void dcast_dave_on_commit(struct dcast_session *session, const unsigned char *b,
     
     if (ignored) {
         cJSON_Delete(d);
-        printf("[dave] commit ignored (tid: %u)\n", tid);
+        DCAST_DEBUG("[dave] commit ignored (tid: %u)\n", tid);
         return;
     }
 
-    printf("[dave] commit OK, tid: %u\n", tid);
+    DCAST_DEBUG("[dave] commit OK, tid: %u\n", tid);
     if (!dcast_dave_state.established) dcast_dave_on_established(session);
     cJSON *o = cJSON_CreateObject();
     cJSON_AddNumberToObject(o, "op", 23);
@@ -163,7 +163,7 @@ static void dcast_dave_on_welcome(struct dcast_session *session, const unsigned 
     cJSON_AddNumberToObject(d, "transition_id", tid);
 
     if (!r) {
-        fprintf(stderr, "[dave] welcome failed for some reason (tid: %u), sending op31, resetting\n", tid);
+        DCAST_DEBUG("[dave] welcome failed for some reason (tid: %u), sending op31, resetting\n", tid);
         cJSON *o = cJSON_CreateObject();
         cJSON_AddNumberToObject(o, "op", 31);
         cJSON_AddItemToObject(o, "d", d);
@@ -173,7 +173,7 @@ static void dcast_dave_on_welcome(struct dcast_session *session, const unsigned 
         return;
     }
     daveWelcomeResultDestroy(r);
-    printf("[dave] welcome OK, tid: %u\n", tid);
+    DCAST_DEBUG("[dave] welcome OK, tid: %u\n", tid);
     if (!dcast_dave_state.established) dcast_dave_on_established(session);
     cJSON *o = cJSON_CreateObject();
     cJSON_AddNumberToObject(o, "op", 23);
@@ -183,7 +183,7 @@ static void dcast_dave_on_welcome(struct dcast_session *session, const unsigned 
 
 void dcast_dave_on_binary(struct dcast_session *session, const unsigned char *buf, size_t n) {
     if (n < 3) {
-        fprintf(stderr, "[dave] binary frame too short (%zu)\n", n);
+        DCAST_DEBUG("[dave] binary frame too short (%zu)\n", n);
         return;
     }
     
@@ -195,7 +195,7 @@ void dcast_dave_on_binary(struct dcast_session *session, const unsigned char *bu
         case 27: dcast_dave_on_proposals(session, payload, plen); break;
         case 29: dcast_dave_on_commit(session, payload, plen); break;
         case 30: dcast_dave_on_welcome(session, payload, plen); break;
-        default: printf("[dave]: unhandled binary opcode: %u ( %zu bytes )\n", op, plen);
+        default: DCAST_DEBUG("[dave]: unhandled binary opcode: %u ( %zu bytes )\n", op, plen);
     }
 }
 

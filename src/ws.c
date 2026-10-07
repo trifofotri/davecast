@@ -15,7 +15,7 @@ struct dcast_socket* dcast_ws_connect(const char *url, const char *name) {
     
     CURLcode r = curl_easy_perform(w->c);
     if (r != CURLE_OK) {
-        fprintf(stderr, "%s: %s\n", name, curl_easy_strerror(r));
+        DCAST_DEBUG("%s: %s\n", name, curl_easy_strerror(r));
         return NULL;
     }
 
@@ -36,13 +36,13 @@ int dcast_ws_pump(dcast_socket* wsock) {
     }
 
     if (r != CURLE_OK) {
-        fprintf(stderr, "[%s] recv error: %s\n", wsock->name, curl_easy_strerror(r));
+        DCAST_DEBUG("[%s] recv error: %s\n", wsock->name, curl_easy_strerror(r));
         return -1;
     }
 
     if (frame && (frame->flags & CURLWS_CLOSE)) {
         int code = n >= 2 ? ((unsigned char)tmp[0] << 8) | (unsigned char)tmp[1] : 0;
-        fprintf(stderr, "[%s] server closed the socket, close code %d%s\n", wsock->name, code, code == 4017 ? "  (DAVE/E2EE required -> rerun with the 'dave' arg)" : "");
+        DCAST_DEBUG("[%s] server closed the socket, close code %d%s\n", wsock->name, code, code == 4017 ? "  (DAVE/E2EE required -> rerun with the 'dave' arg)" : "");
         return -1;
     }
 
@@ -51,7 +51,7 @@ int dcast_ws_pump(dcast_socket* wsock) {
 
     if (n) {
         if (wsock->len + n >= BUFCAP) { /* check if what we got is over the max */
-            fprintf(stderr, "[%s] message too large (limit is %u)\n", wsock->name, BUFCAP);
+            DCAST_DEBUG("[%s] message too large (limit is %u)\n", wsock->name, BUFCAP);
             return -1;
         }
 
@@ -101,5 +101,5 @@ void dcast_ws_send_binary(dcast_socket* wsock, unsigned char op, const unsigned 
         }
     } while (r == CURLE_AGAIN && ++tries < 500);
     free(buf);
-    if (r != CURLE_OK) fprintf(stderr, "[%s] binary send failed\n", wsock->name);
+    if (r != CURLE_OK) DCAST_DEBUG("[%s] binary send failed\n", wsock->name);
 }
