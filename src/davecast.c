@@ -140,11 +140,10 @@ int dcast_poll(struct dcast_session* session, int timeout) {
         ssize_t n = recv(session->udp_fd, rtcp, sizeof rtcp, 0);
         
         if (n >= 2) {
-            int pt = rtcp[1];
             DCAST_DEBUG("[udp]: RTCP type: %d len: %zd\n", pt, n);
-            if (pt == 206) {
+            int fmt = rtcp[0] & 0x1F, pt = rtcp[1];
+            if (pt == 206 && (fmt == 1 || fmt == 4)) {
                 session->pli_pending = 1;
-                DCAST_DEBUG("[udp] [PLI/FIR] requested\n");
             }
         }
     }

@@ -8,12 +8,36 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <time.h>
 
 #define VIDEO_PAYLOAD_TYPE 103
 #define RTP_MAX_PAYLOAD    1100
 
 #define AUDIO_PAYLOAD_TYPE 120
 #define OPUS_SAMPLES_PER_FRAME 960
+
+static uint64_t g_pace_next_ns;
+
+static uint64_t mono_ns(void) {
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t) ts.tv_sec * 1000000000ull + ts.tv_nsec;
+}
+
+static void pace_packet(size_t bytes) {
+    static uint64_t rate_bps = 0;
+    if (!rate_bps) {
+        const char *e = getenv("DCAST_PACE_MBPS");
+        rate_bps = (e ? strtoull(e, NULL, 10) : 30) * 1000000ull;
+        if (rate_bps < 2000000ull) rate_bps = 2000000ull;
+    }
+    uint64_t now = mono_ns();
+    if (g_pace_next_ns < now) g_pace_next_ns = now;    
+    if (g_pace_next_ns > now + 150000) {                
+        struct timespec t = {(time_t)(g_pace_next_ns / 1000000000ull), (long)(g_pace_next_ns % 1000000000ull)};
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, NULL);
+    }
+    g_pace_next_ns += (uint64_t) bytes * 8ull * 1000000000ull / rate_bps;
+}
 
 static int gcm_encrypt(const unsigned char *key32, const unsigned char *nonce12, const unsigned char *aad, int aad_len, const unsigned char *pt, int pt_len, unsigned char *out, int *out_len) {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
@@ -63,6 +87,7 @@ static void send_rtp_packet_generic(struct dcast_session *s, int marker, const u
     }
     memcpy(out + 12 + clen, nonce, 4);
 
+    pace_packet(12 + clen + 4);
     ssize_t sent = sendto(s->udp_fd, out, 12 + clen + 4, 0, (struct sockaddr *) &s->media_addr, sizeof s->media_addr);
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
         fprintf(stderr, "[rtp] sendto failed: %s\n", strerror(errno));
@@ -173,3 +198,4 @@ int dcast_rtp_send_video(dcast_session *s, const void *annexb, size_t len, uint6
     }
     return 0;
 }
+
