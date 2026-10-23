@@ -117,7 +117,6 @@ static void send_nal(struct dcast_session *s, const unsigned char *nal, size_t n
         buf[1] = (unsigned char)((first ? 0x80 : 0) | (last ? 0x40 : 0) | nal_type);
         memcpy(buf + 2, nal + body_off, chunk);
         send_rtp_packet(s, marker && last, buf, (int)(chunk + 2));
-        if (remaining > 0) usleep(200);
         body_off += chunk; remaining -= chunk; first = 0;
     }
 }
