@@ -94,9 +94,10 @@ static int load_video(const char *path, video_src *v) {
 
 int main(int argc, char **argv) {
     /* flag parsing: strip --attach anywhere, keep positionals in order */
-    const char *args[8]; int nargs = 0, attach = 0;
+    const char *args[8]; int nargs = 0, attach = 0, inject = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--attach")) { attach = 1; continue; }
+        if (!strcmp(argv[i], "--inject")) { inject = 1; continue; }
         if (nargs < 8) args[nargs++] = argv[i];
     }
     if (nargs < 4) {
@@ -109,7 +110,8 @@ int main(int argc, char **argv) {
     if (!load_video(args[3], &v)) { fprintf(stderr, "could not load video\n"); return 1; }
 
     dcast_config cfg = {0};
-    cfg.token = args[0]; cfg.guild_id = args[1]; cfg.channel_id = args[2];
+    cfg.guild_id = (!strcmp(args[1], "dm") || !strcmp(args[1], "0")) ? NULL : args[1];
+    cfg.token = args[0]; cfg.channel_id = args[2];
     cfg.client_version = "1.0.154"; cfg.client_build = 626571;
     cfg.user_agent = "Mozilla/5.0 (X11; Linux x86_64) discord/1.0.154 Chrome/140.0.0.0";
     cfg.capabilities = 1767421;
@@ -118,7 +120,16 @@ int main(int argc, char **argv) {
     cfg.video.width = 1280; cfg.video.height = 720;
     cfg.video.framerate = fps; cfg.video.kbps = 2000;   /* matches the ffmpeg cmd */
 
-    dcast_session *s = dcast_connect(&cfg);
+    dcast_session *s;
+    if (inject) {
+        s = dcast_new(&cfg);
+        char line[4096];
+        fprintf(stderr, "paste the bridge JSON, then Enter:\n");
+        if (!fgets(line, sizeof line, stdin) || dcast_inject(s, line) != 0) return 1;
+    } else {
+        s = dcast_connect(&cfg);
+    }
+    
     if (!s) { fprintf(stderr, "dcast_connect failed\n"); return 1; }
     signal(SIGINT, on_sigint);
 

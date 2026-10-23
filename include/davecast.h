@@ -75,12 +75,20 @@ typedef struct dcast_session {
     volatile int pli_pending;
     uint16_t audio_rtp_seq;
     uint32_t audio_rtp_ts;
+    char voice_session_id[128];
 } dcast_session;
 
+static inline int dcast_is_dm(const dcast_config *c) {
+    return !c->guild_id || !c->guild_id[0];
+}
+
 dcast_session *dcast_connect(const dcast_config *cfg);
+dcast_session *dcast_new(const dcast_config *cfg);
 
 int dcast_poll(struct dcast_session* session, int timeout_ms);
 int dcast_send_video(dcast_session *s, const void *annexb, size_t len, uint64_t pts_us, int keyframe);
 int dcast_send_audio(dcast_session *s, const void *opus, size_t len, uint64_t pts_us);
+
+int dcast_inject(dcast_session *s, const char *json);
 
 #endif

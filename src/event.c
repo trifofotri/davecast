@@ -39,6 +39,9 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
         const char *user_id_string = cJSON_GetStringValue(user_id);
         const char *channel_id_string = cJSON_GetStringValue(channel_id);
 
+        cJSON *vsid = cJSON_GetObjectItem(event_data, "session_id");
+        if (cJSON_IsString(vsid)) snprintf(session->voice_session_id, sizeof session->voice_session_id, "%s", vsid->valuestring);
+
         if (user_id_string && strcmp(user_id_string, session->user_id) == 0) {
             DCAST_DEBUG("[dispatcher] [VOICE_STATE_UPDATE]: channel: %s\n", channel_id_string ? channel_id_string : "none");
 
@@ -55,7 +58,8 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
         char* rtc_channel_string = cJSON_GetStringValue(rtc_channel);
         char* stream_key_string  = cJSON_GetStringValue(stream_key);
 
-        if (!rtc_server_string || !rtc_channel_string || !stream_key_string) return;
+        if (!rtc_channel_string || !stream_key_string) return;
+        if (!rtc_server_string) rtc_server_string = rtc_channel_string;
 
         snprintf(session->rtc_server,  sizeof(session->rtc_server),  "%s", rtc_server_string);
         snprintf(session->rtc_channel, sizeof(session->rtc_channel), "%s", rtc_channel_string);
@@ -86,12 +90,30 @@ void dcast_dispatch_event(struct dcast_session* session, cJSON* json_obj) {
         }
     } else if (strcmp(event_type_string, "GUILD_CREATE") == 0) {
         cJSON *id = cJSON_GetObjectItem(event_data, "id");
-        if (session->cfg->attach && !session->stream_requested && cJSON_IsString(id) && !strcmp(id->valuestring, session->cfg->guild_id)) {
+        if (session->cfg->attach && !dcast_is_dm(session->cfg) && !session->stream_requested && cJSON_IsString(id) && !strcmp(id->valuestring, session->cfg->guild_id)) {
             cJSON *vs;
             cJSON_ArrayForEach(vs, cJSON_GetObjectItem(event_data, "voice_states")) {
                 cJSON *u = cJSON_GetObjectItem(vs, "user_id");
                 cJSON *ch = cJSON_GetObjectItem(vs, "channel_id");
                 if (cJSON_IsString(u) && !strcmp(u->valuestring, session->user_id) && cJSON_IsString(ch) && !strcmp(ch->valuestring, session->cfg->channel_id)) {
+                    request_stream(session);
+                    break;
+                }
+            }
+        }
+    } else if (strcmp(event_type_string, "CALL_CREATE") == 0) {
+        cJSON *ch = cJSON_GetObjectItem(event_data, "channel_id");
+
+        if (session->cfg->attach && !session->stream_requested &&
+            cJSON_IsString(ch) && !strcmp(ch->valuestring, session->cfg->channel_id)) {
+            cJSON *vs;
+            cJSON_ArrayForEach(vs, cJSON_GetObjectItem(event_data, "voice_states")) {
+                cJSON *u = cJSON_GetObjectItem(vs, "user_id");
+                cJSON *sid = cJSON_GetObjectItem(vs, "session_id");
+                if (cJSON_IsString(u) && !strcmp(u->valuestring, session->user_id)) {
+                    if (cJSON_IsString(sid)) {
+                        snprintf(session->voice_session_id, sizeof session->voice_session_id, "%s", sid->valuestring);
+                    }
                     request_stream(session);
                     break;
                 }
