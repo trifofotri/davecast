@@ -90,5 +90,7 @@ int dcast_send_video(dcast_session *s, const void *annexb, size_t len, uint64_t 
 int dcast_send_audio(dcast_session *s, const void *opus, size_t len, uint64_t pts_us);
 
 int dcast_inject(dcast_session *s, const char *json);
+int dcast_bridge_listen(int port);
+int dcast_bridge_poll(dcast_session *s);
 
 #endif
