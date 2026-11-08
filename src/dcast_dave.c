@@ -4,9 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 // global
 dave_state dcast_dave_state;
+static pthread_mutex_t g_dave_mu;
+static pthread_once_t g_dave_mu_once = PTHREAD_ONCE_INIT;
 
 void dcast_dave_fail_cb(const char *source, const char *reason, void *ud) {
     (void)ud;
@@ -43,6 +46,7 @@ int dcast_dave_recognized(struct dcast_session *session, const char *out[DAVE_MA
 }
 
 void dcast_dave_ensure_session(struct dcast_session *session) {
+    dcast_dave_lock();
     if (!session->rtc_channel[0] || !dcast_dave_state.have_ext_sender) return;
 
     if (!dcast_dave_state.session_inited) {
@@ -66,6 +70,7 @@ void dcast_dave_ensure_session(struct dcast_session *session) {
     } else {
         DCAST_DEBUG("[dave] empty key package, group id or external sender is probably wrong\n");
     }
+    dcast_dave_unlock();
 }
 
 static void dcast_dave_refresh_encryptor(struct dcast_session *session) {
@@ -204,10 +209,12 @@ void dcast_dave_on_binary(struct dcast_session *session, const unsigned char *bu
         DCAST_DEBUG("[dave] binary frame too short (%zu)\n", n);
         return;
     }
-    
+
     unsigned op = buf[2];
     const unsigned char *payload = buf + 3;
     size_t plen = n - 3;
+
+    dcast_dave_lock();
     switch (op) {
         case 25: dcast_dave_on_external_sender(session, payload, plen); break;
         case 27: dcast_dave_on_proposals(session, payload, plen); break;
@@ -215,10 +222,12 @@ void dcast_dave_on_binary(struct dcast_session *session, const unsigned char *bu
         case 30: dcast_dave_on_welcome(session, payload, plen); break;
         default: DCAST_DEBUG("[dave]: unhandled binary opcode: %u ( %zu bytes )\n", op, plen);
     }
+    dcast_dave_unlock();
 }
 
 // JSON ops 21 (prepare_transition), 22 (execute_transition), 24 (prepare_epoch)
 void dcast_dave_on_json(struct dcast_session *session, int op, cJSON *d) {
+    dcast_dave_lock();
     if (op == 24) {
         cJSON *ver = cJSON_GetObjectItem(d, "protocol_version");
         cJSON *epoch = cJSON_GetObjectItem(d, "epoch");
@@ -230,6 +239,17 @@ void dcast_dave_on_json(struct dcast_session *session, int op, cJSON *d) {
             dcast_dave_ensure_session(session);
         }
     }
+    dcast_dave_unlock();
 }
 
 
+static void dave_mu_init(void) {
+    pthread_mutexattr_t a;
+    pthread_mutexattr_init(&a);
+    pthread_mutexattr_settype(&a, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&g_dave_mu, &a);
+    pthread_mutexattr_destroy(&a);
+}
+
+void dcast_dave_lock(void)   { pthread_once(&g_dave_mu_once, dave_mu_init); pthread_mutex_lock(&g_dave_mu); }
+void dcast_dave_unlock(void) { pthread_mutex_unlock(&g_dave_mu); }

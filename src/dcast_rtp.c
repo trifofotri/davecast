@@ -57,10 +57,12 @@ static int gcm_encrypt(const unsigned char *key32, const unsigned char *nonce12,
     return 1;
 }
 
-static void send_rtp_packet_generic(struct dcast_session *s, int marker, const unsigned char *payload, int plen, uint8_t payload_type, uint32_t ssrc, uint16_t *seq, uint32_t ts) {
+static void send_rtp_packet_generic(struct dcast_session *s, int marker,
+    const unsigned char *payload, int plen, uint8_t payload_type,
+    uint32_t ssrc, uint16_t *seq, uint32_t ts, int paced) {
     unsigned char hdr[12];
     hdr[0] = 0x80;
-    hdr[1] = (unsigned char) ((marker ? 0x80 : 0) | (payload_type & 0x7F));
+    hdr[1] = (unsigned char)((marker ? 0x80 : 0) | (payload_type & 0x7F));
     hdr[2] = (*seq) >> 8;
     hdr[3] = (*seq) & 0xFF;
     hdr[4] = ts >> 24;
@@ -72,11 +74,12 @@ static void send_rtp_packet_generic(struct dcast_session *s, int marker, const u
     hdr[10] = ssrc >> 8;
     hdr[11] = ssrc;
 
+    uint32_t ctr = __atomic_fetch_add(&s->gcm_counter, 1, __ATOMIC_RELAXED);
     unsigned char nonce[12] = {0};
-    nonce[0] = (unsigned char)(s->gcm_counter >> 24);
-    nonce[1] = (unsigned char)(s->gcm_counter >> 16);
-    nonce[2] = (unsigned char)(s->gcm_counter >> 8);
-    nonce[3] = (unsigned char)s->gcm_counter;
+    nonce[0] = (unsigned char)(ctr >> 24);
+    nonce[1] = (unsigned char)(ctr >> 16);
+    nonce[2] = (unsigned char)(ctr >> 8);
+    nonce[3] = (unsigned char)ctr;
 
     unsigned char out[12 + RTP_MAX_PAYLOAD + 16 + 4];
     memcpy(out, hdr, 12);
@@ -87,40 +90,48 @@ static void send_rtp_packet_generic(struct dcast_session *s, int marker, const u
     }
     memcpy(out + 12 + clen, nonce, 4);
 
-    pace_packet(12 + clen + 4);
-    ssize_t sent = sendto(s->udp_fd, out, 12 + clen + 4, 0, (struct sockaddr *) &s->media_addr, sizeof s->media_addr);
-    if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-        fprintf(stderr, "[rtp] sendto failed: %s\n", strerror(errno));
-    }
+    if (paced) pace_packet(12 + clen + 4);
+
+    ssize_t sent = sendto(s->udp_fd, out, 12 + clen + 4, 0, (struct sockaddr *)&s->media_addr, sizeof s->media_addr);
+    if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) fprintf(stderr, "[rtp] sendto failed: %s\n", strerror(errno));
 
     (*seq)++;
-    s->gcm_counter++;
 }
 
 static void send_rtp_packet(struct dcast_session *s, int marker, const unsigned char *payload, int plen) {
-    send_rtp_packet_generic(s, marker, payload, plen, VIDEO_PAYLOAD_TYPE, s->v_ssrc, &s->rtp_seq, s->rtp_ts);
+    send_rtp_packet_generic(s, marker, payload, plen, VIDEO_PAYLOAD_TYPE, s->v_ssrc, &s->rtp_seq, s->rtp_ts, 1);
 }
 
 int dcast_rtp_send_audio(dcast_session *s, const void *opus, size_t len, uint64_t pts_us) {
     (void)pts_us;
     if (!s->have_key) return -1;
 
-    if (s->dave_active && dcast_dave_state.established) {
-        size_t cap = daveEncryptorGetMaxCiphertextByteSize(dcast_dave_state.enc, DAVE_MEDIA_TYPE_AUDIO, len);
-        unsigned char *ct = malloc(cap);
+    if (s->dave_active) {
+        if (!dcast_dave_state.established) return 0;
+
+        unsigned char *ct = NULL;
         size_t written = 0;
-        DAVEEncryptorResultCode rc = daveEncryptorEncrypt(dcast_dave_state.enc, DAVE_MEDIA_TYPE_AUDIO, s->a_ssrc, opus, len, ct, cap, &written);
-        if (rc != DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS) {
-            free(ct);
-            return -2;
+        int ok = 0;
+
+        dcast_dave_lock();
+        if (dcast_dave_state.enc) {
+            size_t cap = daveEncryptorGetMaxCiphertextByteSize(dcast_dave_state.enc, DAVE_MEDIA_TYPE_AUDIO, len);
+            ct = malloc(cap);
+            if (ct) {
+                DAVEEncryptorResultCode rc = daveEncryptorEncrypt(dcast_dave_state.enc, DAVE_MEDIA_TYPE_AUDIO,
+                                                                  s->a_ssrc, opus, len, ct, cap, &written);
+                ok = (rc == DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS);
+            }
         }
-        
-        send_rtp_packet_generic(s, 1, ct, (int)written, AUDIO_PAYLOAD_TYPE, s->a_ssrc, &s->audio_rtp_seq, s->audio_rtp_ts);
+        dcast_dave_unlock();
+
+        if (!ok) { free(ct); return -2; }
+        send_rtp_packet_generic(s, 0, ct, (int)written, AUDIO_PAYLOAD_TYPE,
+                                s->a_ssrc, &s->audio_rtp_seq, s->audio_rtp_ts, 0);
         free(ct);
-    } else if (s->dave_active) {
-        return 0;
     } else {
-        send_rtp_packet_generic(s, 1, opus, (int)len, AUDIO_PAYLOAD_TYPE, s->a_ssrc, &s->audio_rtp_seq, s->audio_rtp_ts);
+        send_rtp_packet_generic(s, 0, opus, (int)len, AUDIO_PAYLOAD_TYPE,
+                                s->a_ssrc, &s->audio_rtp_seq, s->audio_rtp_ts, 0);
     }
     s->audio_rtp_ts += OPUS_SAMPLES_PER_FRAME;
     return 0;
@@ -175,27 +186,33 @@ static void packetize_frame(struct dcast_session *s, const unsigned char *buf, s
 
 int dcast_rtp_send_video(dcast_session *s, const void *annexb, size_t len, uint64_t pts_us, int keyframe) {
     if (!s->have_key) return -1;
-    (void) keyframe;
+    (void)keyframe;
 
-    s->rtp_ts = (uint32_t) ( ( uint64_t) pts_us * 9 / 100 );
+    s->rtp_ts = (uint32_t)((uint64_t)pts_us * 9 / 100);
 
-    if (s->dave_active && dcast_dave_state.established) {
-        size_t cap = daveEncryptorGetMaxCiphertextByteSize(dcast_dave_state.enc, DAVE_MEDIA_TYPE_VIDEO, len);
-        unsigned char *ct = malloc(cap);
+    if (s->dave_active) {
+        if (!dcast_dave_state.established) return 0;
+
+        unsigned char *ct = NULL;
         size_t written = 0;
-        DAVEEncryptorResultCode rc = daveEncryptorEncrypt(dcast_dave_state.enc, DAVE_MEDIA_TYPE_VIDEO, s->v_ssrc, annexb, len, ct, cap, &written);
-        if (rc != DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS) {
-            free(ct);
-            return -2;
-        }
+        int ok = 0;
 
+        dcast_dave_lock();
+        if (dcast_dave_state.enc) {
+            size_t cap = daveEncryptorGetMaxCiphertextByteSize(dcast_dave_state.enc, DAVE_MEDIA_TYPE_VIDEO, len);
+            ct = malloc(cap);
+            if (ct) {
+                DAVEEncryptorResultCode rc = daveEncryptorEncrypt(dcast_dave_state.enc, DAVE_MEDIA_TYPE_VIDEO, s->v_ssrc, annexb, len, ct, cap, &written);
+                ok = (rc == DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS);
+            }
+        }
+        dcast_dave_unlock();
+
+        if (!ok) { free(ct); return -2; }
         packetize_frame(s, ct, written);
         free(ct);
-    } else if (s->dave_active) {
-        return 0;
     } else {
         packetize_frame(s, annexb, len);
     }
     return 0;
 }
-

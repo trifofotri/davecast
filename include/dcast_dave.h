@@ -33,5 +33,7 @@ void dcast_dave_on_commit(struct dcast_session *session, const unsigned char *b,
 static void dcast_dave_on_welcome(struct dcast_session *session, const unsigned char *b, size_t n);
 void dcast_dave_on_binary(struct dcast_session *session, const unsigned char *buf, size_t n);
 void dcast_dave_on_json(struct dcast_session *session, int op, cJSON *d);
+void dcast_dave_lock(void);
+void dcast_dave_unlock(void);
 
 #endif
